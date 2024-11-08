@@ -23,7 +23,7 @@
     "whiteListIds": ["","",""],
     "notes": "if you enable this feature, only the ids in the whiteListIds section can use the bot"
   },
-  "nickNameBot": " 𝘼𝙞 ",
+  "nickNameBot": " 🕷️𝕸𝖎𝖑𝖊𝖘 𝕸𝖔𝖗𝖆𝖑𝖊𝖘🕷 ",
   "prefix": "/",
   "database": {
     "type": "sqlite",
