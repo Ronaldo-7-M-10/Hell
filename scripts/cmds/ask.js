@@ -2,15 +2,15 @@ const axios = require('axios');
 
 async function fetchFromAI(url, params) {
   try {
-    const response = await axios.get(url, { params });
+    const response = await axios.get(url, { params, timeout: 5000 });
     return response.data;
   } catch (error) {
-    console.error(error);
+    console.error(`Error fetching from ${url}:`, error.message);
     return null;
   }
 }
 
-async function getAIResponse(input, userId, messageID) {
+async function getAIResponse(input, userId) {
   const services = [
     { url: 'https://ai-tools.replit.app/gpt', params: { prompt: input, uid: userId } },
     { url: 'https://openaikey-x20f.onrender.com/api', params: { prompt: input } },
@@ -19,25 +19,22 @@ async function getAIResponse(input, userId, messageID) {
   ];
 
   let response = "Hey, my name is Snøw ☃️ ask me any questions darling ✏, I'll be happy to answer you ❄️";
-  let currentIndex = 0;
 
-  for (let i = 0; i < services.length; i++) {
-    const service = services[currentIndex];
+  for (const service of services) {
     const data = await fetchFromAI(service.url, service.params);
     if (data && (data.gpt4 || data.reply || data.response)) {
       response = data.gpt4 || data.reply || data.response;
       break;
     }
-    currentIndex = (currentIndex + 1) % services.length; // Move to the next service in the cycle
   }
 
-  return { response, messageID };
+  return response;
 }
 
 module.exports = {
   config: {
     name: 'ai',
-    author: 'Arn',
+    author: 'Arn | Redwan',
     role: 0,
     category: 'ai',
     shortDescription: 'ai to ask anything',
@@ -45,19 +42,23 @@ module.exports = {
   onStart: async function ({ api, event, args }) {
     const input = args.join(' ').trim();
     if (!input) {
-      api.sendMessage(`ØđɨȺmᵾs Łønøn\n━━━━━━━━━━━━━━━━\nPlease provide a question or statement.\n━━━━━━━━━━━━━━━━`, event.threadID, event.messageID);
+      api.sendMessage(
+        `Sui\n━━━━━━━━━━━━━━━━\nPlease provide a question or statement.\n━━━━━━━━━━━━━━━━`,
+        event.threadID,
+        event.messageID
+      );
       return;
     }
 
-    const { response, messageID } = await getAIResponse(input, event.senderID, event.messageID);
-    api.sendMessage(`Suui\n━━━━━━━━━━━━━━━━\n${response}\n━━━━━━━━━━━━━━━━`, event.threadID, messageID);
+    const response = await getAIResponse(input, event.senderID);
+    api.sendMessage(`ØđɨȺmᵾs Łønøn\n━━━━━━━━━━━━━━━━\n${response}\n━━━━━━━━━━━━━━━━`, event.threadID, event.messageID);
   },
   onChat: async function ({ event, message }) {
     const messageContent = event.body.trim().toLowerCase();
     if (messageContent.startsWith("ai")) {
       const input = messageContent.replace(/^ai\s*/, "").trim();
-      const { response, messageID } = await getAIResponse(input, event.senderID, message.messageID);
-      message.reply(`Cristiano\n━━━━━━━━━━━━━━━━\n${response}\n━━━━━━━━━━━━━━━━`, messageID);
+      const response = await getAIResponse(input, event.senderID);
+      message.reply(`Ash Redwan\n━━━━━━━━━━━━━━━━\n${response}\n━━━━━━━━━━━━━━━━`);
     }
   }
 };
