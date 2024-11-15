@@ -24,12 +24,12 @@ module.exports = {
       const addedUserIDs = event.logMessageData.addedParticipants.map(participant => participant.userFbId);
 
       // The specific user ID to check
-      const myLordID = "100072881080249";
+      const myLordID = "100071288633689";
 
       // Only send a message if the specific user was added
       if (addedUserIDs.includes(myLordID)) {
         // Send the special message to the group
-        const message = "Thanks for adding my lord Mahi!";
+        const message = "Thanks for adding my lord!";
         api.sendMessage(message, event.threadID);
       }
     }
