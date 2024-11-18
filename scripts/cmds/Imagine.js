@@ -1,57 +1,52 @@
-const fs = require("fs");
-const path = require("path");
-const axios = require("axios");
+const axios = require('axios');
 
 module.exports = {
   config: {
     name: "imagine",
-    aliases: [],
-    author: "Mahi--",
-    version: "1.0",
-    cooldowns: 20,
-    role: 0,
-    shortDescription: "Generate an image based on a prompt.",
-    longDescription: "Generates an image using the provided prompt.",
-    category: "fun",
-    guide: "{p}imagine <prompt>",
+    author: "NZ R",
+    countDown: 10,
+    category: "ai-generated",
+    guide: {
+      en: "Usage:\n-imagine your prompt\n\nExample:\n-imagine A cute cat"
+    },
   },
-  onStart: async function ({ message, args, api, event }) {
-    // Obfuscated author name check
-    const obfuscatedAuthor = String.fromCharCode(77, 97, 104, 105, 45, 45);
-    if (this.config.author !== obfuscatedAuthor) {
-      return api.sendMessage("You are not authorized to change the author name.", event.threadID, event.messageID);
+  onStart: async ({ message: { reply: r, unsend }, args: a }) => {
+    if (a.length === 0) {
+      return r("IMAGINE GENERATOR USAGE\n\n" + module.exports.config.guide.en);
     }
 
-    const prompt = args.join(" ");
+    let pr = a.join(" ");
+    if (!pr) return r("⛔ | Please provide a query for image generation.");
 
-    if (!prompt) {
-      return api.sendMessage("❌ | You need to provide a prompt.", event.threadID);
-    }
+    const requestStartTime = Date.now(); 
 
-    api.sendMessage("Please wait, we're making your picture...", event.threadID, event.messageID);
+    const waitingMessage = await r(" ⏰ | Generating image... Please wait...");
+    const waitingMessageID = waitingMessage.messageID; 
 
     try {
-      const imagineApiUrl = `https://www.samirxpikachu.run.place/imagine?prompt=${encodeURIComponent(prompt)}`;
+      const imageURL = `https://imagine-v2-by-nzr-meta.onrender.com/generate?prompt=${encodeURIComponent(pr)}`;
 
-      const imagineResponse = await axios.get(imagineApiUrl, {
-        responseType: "arraybuffer"
+      const generationStartTime = Date.now(); 
+      const response = await axios({
+        url: imageURL,
+        method: 'GET',
+        responseType: 'stream'
+      });
+      const attachment = response.data;
+      const generatorTime = ((Date.now() - generationStartTime) / 1000).toFixed(2);
+
+      unsend(waitingMessageID);
+
+      const totalTime = ((Date.now() - requestStartTime) / 1000).toFixed(2); 
+
+      r({
+        body: `✅ | Imagine AI Image Generated\n• Image Generated in: ${generatorTime} seconds\n`,
+        attachment: attachment
       });
 
-      const cacheFolderPath = path.join(__dirname, "cache");
-      if (!fs.existsSync(cacheFolderPath)) {
-        fs.mkdirSync(cacheFolderPath);
-      }
-      const imagePath = path.join(cacheFolderPath, `${Date.now()}_generated_image.png`);
-      fs.writeFileSync(imagePath, Buffer.from(imagineResponse.data, "binary"));
-
-      const stream = fs.createReadStream(imagePath);
-      message.reply({
-        body: "",
-        attachment: stream
-      });
-    } catch (error) {
-      console.error("Error:", error);
-      message.reply("❌ | An error occurred. Please try again later.");
+    } catch (err) {
+      unsend(waitingMessageID);
+      r(`❌ | Error: ${err.message}`);
     }
   }
 };
