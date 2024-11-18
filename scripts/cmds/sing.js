@@ -1,101 +1,52 @@
-const axios = require("axios");
-const fs = require('fs-extra');
-const path = require('path');
-const { getStreamFromURL, shortenURL, randomString } = global.utils;
-
-async function video(api, event, args, message) {
-    api.setMessageReaction("🤤", event.messageID, (err) => {}, true);
-    try {
-        let title = '';
-        let shortUrl = '';
-        let videoId = '';
-
-        const extractShortUrl = async () => {
-            const attachment = event.messageReply.attachments[0];
-            if (attachment.type === "video" || attachment.type === "audio") {
-                return attachment.url;
-            } else {
-                throw new Error("Invalid attachment type.");
-            }
-        };
-
-        if (event.messageReply && event.messageReply.attachments && event.messageReply.attachments.length > 0) {
-            shortUrl = await extractShortUrl();
-            const musicRecognitionResponse = await axios.get(`https://audio-recon-ahcw.onrender.com/kshitiz?url=${encodeURIComponent(shortUrl)}`);
-            title = musicRecognitionResponse.data.title;
-            const searchResponse = await axios.get(`https://youtube-kshitiz-gamma.vercel.app/yt?search=${encodeURIComponent(title)}`);
-            if (searchResponse.data.length > 0) {
-                videoId = searchResponse.data[0].videoId;
-            }
-
-            shortUrl = await shortenURL(shortUrl);
-        } else if (args.length === 0) {
-            message.reply("Please provide a video name or reply to a video or audio attachment.");
-            return;
-        } else {
-            title = args.join(" ");
-            const searchResponse = await axios.get(`https://youtube-kshitiz.vercel.app/youtube?search=${encodeURIComponent(title)}`);
-            if (searchResponse.data.length > 0) {
-                videoId = searchResponse.data[0].videoId;
-            }
-
-            const videoUrlResponse = await axios.get(`https://youtube-kshitiz.vercel.app/download?id=${encodeURIComponent(videoId)}`);
-            if (videoUrlResponse.data.length > 0) {
-                shortUrl = await shortenURL(videoUrlResponse.data[0]);
-            }
-        }
-
-        if (!videoId) {
-            message.reply("No video found for the given query.");
-            return;
-        }
-
-        const downloadResponse = await axios.get(`https://youtube-kshitiz.vercel.app/download?id=${encodeURIComponent(videoId)}`);
-        const videoUrl = downloadResponse.data[0]; 
-
-        if (!videoUrl) {
-            message.reply("Failed to retrieve download link for the video.");
-            return;
-        }
-
-        const writer = fs.createWriteStream(path.join(__dirname, "cache", `${videoId}.mp3`));
-        const response = await axios({
-            url: videoUrl,
-            method: 'GET',
-            responseType: 'stream'
-        });
-
-        response.data.pipe(writer);
-
-        writer.on('finish', () => {
-            const videoStream = fs.createReadStream(path.join(__dirname, "cache", `${videoId}.mp3`)); 
-            message.reply({ body: `📹 Playing: ${title}`, attachment: videoStream });
-            api.setMessageReaction("🍆", event.messageID, () => {}, true);
-        });
-
-        writer.on('error', (error) => {
-            console.error("Error:", error);
-            message.reply("Error downloading the video.");
-        });
-    } catch (error) {
-        console.error("Error:", error);
-        message.reply("An error occurred.");
-    }
-}
+const axios = require('axios');
+const https = require('https');
 
 module.exports = {
     config: {
-        name: "sing", 
-        version: "1.0",
-        author: "Kshitiz",
-        countDown: 10,
+        name: "sing",
+        version: "1.1",
+        author: "UPoL SAHA",
+        countDown: 5,
         role: 0,
-        shortDescription: "play audio from youtube",
-        longDescription: "play audio from youtube support audio recognition.",
-        category: "music",
-        guide: "{p} audio videoname / reply to audio or video" 
+        shortDescription:{
+            en: "Search for a song and play audio."           
+          },
+        description: "Fetch and play audio based on the provided song name.",
+        category: "Music",
+        guide: {
+            en: "{pn} <song name>"
+         }
     },
-    onStart: function ({ api, event, args, message }) {
-        return video(api, event, args, message);
+
+    onStart: async function ({ message, args, api }) {
+        if (!args.length) return message.reply("Please provide a song name to search.");
+
+        const songName = args.join(' ');
+
+        const searchingMessage = await message.reply(`Searching for "${songName}"...`);
+
+        try {
+            const response = await axios.get(`https://upol-search.onrender.com/yt-audio?name=${encodeURIComponent(songName)}`);
+            const songData = response.data;
+
+            const songInfoMessage = `🎶 Now playing: ${songData.title}\n`
+                + `Artist: ${songData.artist}\n`;
+
+            const audioStream = await axios({
+                url: songData.downloadUrl,
+                method: 'GET',
+                responseType: 'stream',
+                httpsAgent: new https.Agent({ rejectUnauthorized: false }) 
+            });
+
+            await message.unsend(searchingMessage.messageID);
+            return message.reply({
+                body: songInfoMessage,
+                attachment: audioStream.data
+            });
+        } catch (error) {
+            console.error(error);
+            return message.reply("api issue.");
+        }
     }
 };
